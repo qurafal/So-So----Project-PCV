@@ -14,7 +14,7 @@ from rhythm_game import RhythmGame
 from stage_loader import load_stage
 
 # ==================================== TESTING = True, Asli = False
-TEST_MOUSE_CONTROL = True
+TEST_MOUSE_CONTROL = False
 # =========================================================
 GAME_PREVIEW_MARGIN_X = 220
 GAME_PREVIEW_MARGIN_Y = 140

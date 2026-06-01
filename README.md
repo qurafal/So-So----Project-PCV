@@ -1,6 +1,8 @@
 # So So! - Project PCV
 
-Sebuah proyek Rhythm Game interaktif berbasis Python yang memanfaatkan teknologi Computer Vision (Visi Komputer). Game ini mendeteksi posisi tangan pemain menggunakan kamera (webcam) secara real-time untuk mengendalikan kursor tameng (shield) guna menghalau notes yang datang dari 4 arah mata angin (`top`, `bottom`, `left`, `right`).
+Faruq Awliya Labiib - 5024241020
+
+Sebuah proyek Rhythm Game untuk PCV berbasis Python yang memanfaatkan teknologi Computer Vision (Visi Komputer). Game ini mendeteksi posisi tangan pemain menggunakan kamera (webcam) secara real-time untuk mengendalikan kursor tameng (shield) guna menghalau notes yang datang dari 4 arah mata angin (`top`, `bottom`, `left`, `right`).
 
 Proyek ini dikembangkan menggunakan kombinasi OpenCV untuk pengambilan citra dan interface, Pygame Mixer untuk play audio, serta NumPy untuk image processing, alpha blending, dan morfologi.
 
@@ -9,13 +11,17 @@ Proyek ini dikembangkan menggunakan kombinasi OpenCV untuk pengambilan citra dan
 ## 📺 Demonstrasi Proyek & Tangkapan Layar
 
 ### Video Demonstrasi
-[![Video Gameplay CV Rhythm Game](https://img.shields.io/badge/YouTube-Video%20Demonstrasi-red?style=for-the-badge&logo=youtube)](https://youtube.com/watch?v=PLACEHOLDER_VIDEO_LINK)
-*(Klik tombol di atas untuk melihat video demonstrasi teknis dan gameplay proyek)*
+[Video Gameplay CV Rhythm Game](https://youtu.be/hVtM1REGCdU)
+
+*(Klik link di atas untuk melihat video demonstrasi teknis dan gameplay proyek)*
 
 ### Tangkapan Layar Game (Gameplay Screenshots)
-| Antarmuka Menu Utama | Tampilan Skin Mask (NumPy) | Dokumentasi Gameplay |
-| :---: | :---: | :---: |
-| ![Start Menu](https://via.placeholder.com/400x250.png?text=Placeholder:+Tampilan+Menu+Utama) | ![Skin Masking](https://via.placeholder.com/400x250.png?text=Placeholder:+Proses+Masking+Tangan) | ![Gameplay Active](https://via.placeholder.com/400x250.png?text=Placeholder:+Gameplay+Tameng+150+Derajat) |
+#### Opening Gesture Mask 
+ ![Opening Gesture Mask](dokum/open.png) 
+#### Closing Gesture Mask
+ ![Closing Gesture Mask](dokum/close.png)
+#### Gameplay 
+  ![Gameplay](dokum/gameplay.png) 
 
 ---
 
