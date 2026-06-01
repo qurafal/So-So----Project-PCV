@@ -164,10 +164,16 @@ class RhythmGame:
         self.cursor_y = float(self.center_y)
         self.cursor_size = 12
         self.center_radius = 36
-        # Shield settings: arc radius (from center), thickness, and angle width in degrees
+
         self.shield_radius = self.center_radius + 72
         self.shield_thickness = 20
-        self.shield_arc_deg = 70
+        self.normal_shield_arc = 70.0       
+        self.shield_arc_deg = self.normal_shield_arc
+
+        self.skill_duration_timer = 0.0     
+        self.skill_cooldown_timer = 0.0     
+        self.is_skill_active = False 
+
         self.notes = []
         self.score = 0
         self.misses = 0
@@ -191,6 +197,18 @@ class RhythmGame:
             self.chart_offset_seconds = float(chart_offset_seconds)
 
         self.start_time = time.perf_counter()
+
+    def trigger_shield_skill(self):
+        """Memicu skill melebarkan tameng menjadi 150 derajat jika tidak sedang cooldown"""
+        if self.skill_cooldown_timer > 0.0 or self.is_skill_active:
+            return False  # Gagal karena masih cooldown atau sedang aktif
+            
+        # Aktifkan skill
+        self.is_skill_active = True
+        self.shield_arc_deg = 150.0          # Ubah busur tameng jadi 150 derajat
+        self.skill_duration_timer = 2.0      # Atur durasi aktif selama 2 detik
+        self.skill_cooldown_timer = 10.0     # Atur cooldown selama 10 detik (berjalan paralel)
+        return True
 
     def song_time(self):
         return time.perf_counter() - self.start_time - self.chart_offset_seconds
@@ -336,5 +354,18 @@ class RhythmGame:
         cv2.putText(canvas, f"Miss: {self.misses}", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 180, 180), 2)
         cv2.putText(canvas, f"Combo: {self.combo}", (20, 105), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (180, 255, 180), 2)
         cv2.putText(canvas, "Move hand to control cursor", (20, self.game_height - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200, 200, 200), 2)
+
+        if self.is_skill_active:
+            skill_text = f"BUFF ACTIVE! ({self.skill_duration_timer:.1f}s)"
+            text_color = (0, 255, 255) # Cyan saat tameng raksasa aktif
+        elif self.skill_cooldown_timer > 0.0:
+            skill_text = f"Skill CD: {self.skill_cooldown_timer:.1f}s"
+            text_color = (0, 165, 255) # Oranye saat cooldown
+        else:
+            skill_text = "SKILL READY! (Open Hand)"
+            text_color = (0, 255, 0) # Hijau saat siap digunakan
+
+        cv2.putText(canvas, skill_text, (self.game_width - 320, 40), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, text_color, 2)
 
         return canvas

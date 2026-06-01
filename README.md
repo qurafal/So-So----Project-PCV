@@ -20,7 +20,7 @@ Proyek ini dibangun secara modular dengan pembagian tugas sebagai berikut:
 1. **`main.py`**
    *Entry point* utama aplikasi. Berfungsi mengatur *game loop*, inisialisasi kamera, sinkronisasi audio, manajemen menu awal (*Start Menu*), serta menghubungkan modul deteksi tangan dengan logika *rhythm game*.
 2. **`hand_detection.py`**
-   Modul pengolahan citra. Berfungsi mengonversi *frame* video ke color space HSV, melakukan *skin masking* (segmentasi kulit), mencari komponen terbesar, dan mengekstrak titik tengah koordinat tangan pemain.
+   Modul pengolahan citra. Berfungsi mengonversi *frame* video ke color space HSV, melakukan *skin masking* (segmentasi kulit), mencari komponen terbesar, menentukan gestur, dan mengekstrak titik tengah koordinat tangan pemain.
 3. **`rhythm_game.py`**
    Modul inti logika permainan. Mengatur pergerakan *notes* dari luar ke dalam lingkaran tengah, kalkulasi posisi tameng (*shield*), deteksi tabrakan (*collision detection*), serta penghitungan skor dan kombo.
 4. **`stage_loader.py`**
@@ -55,7 +55,15 @@ python main.py
 ```
 Menu Utama: Tekan tombol SPASI (Spacebar), tombol S, atau Klik Mouse pada layar untuk memulai permainan dan memutar musik.
 
-Mekanik Game: Gerakkan tanganmu di depan webcam (atau gerakkan mouse jika mode testing aktif) untuk mengarahkan tameng melingkar di tengah layar.
+Mekanik Game: 
+
+Gerakkan tanganmu di depan webcam (atau gerakkan mouse jika mode testing aktif) untuk mengarahkan tameng melingkar di tengah layar.
+
+Mekanik Gerakan:
+
+Jaga tangan tetap mengepal rapat (CLOSED) di depan webcam untuk mengarahkan posisi tameng normal dalam menghadang notes.
+
+Buka telapak tangan lebar-lebar (OPEN) untuk memicu skill tameng raksasa 150 derajat selama 2 detik saat kewalahan menghadapi gerombolan notes.
 
 Hadang setiap balok note yang meluncur dari arah luar sesuai irama lagu.
 

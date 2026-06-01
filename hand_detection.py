@@ -8,12 +8,10 @@ SKIN_S_MIN = 20.0
 SKIN_S_MAX = 150.0
 SKIN_V_MIN = 100.0
 
-BOX_SHRINK_RATIO = 0.18
 HAND_CENTER_SQUARE_SIZE = 24
-HAND_HIGHLIGHT_SATURATION_BOOST = 35.0
-HAND_HIGHLIGHT_VALUE_BOOST = 20.0
 MIN_COMPONENT_AREA = 3000
 HAND_DETECT_SCALE = 0.5
+GESTURE_THRESHOLD = 0.5
 
 
 def bgr_to_hsv(frame):
@@ -149,50 +147,104 @@ def draw_filled_square(frame, center_x, center_y, size, color=(0, 0, 255)):
 
     frame[y1:y2, x1:x2] = color
 
+def numpy_erode(mask):
+    eroded = mask.copy()
+    
+    # slide window manual karena slide window numpy malah full hitam
+    shift_u = np.roll(mask, -1, axis=0); shift_u[-1, :] = 0
+    shift_d = np.roll(mask, 1, axis=0);  shift_d[0, :] = 0
+    shift_l = np.roll(mask, -1, axis=1); shift_l[:, -1] = 0
+    shift_r = np.roll(mask, 1, axis=1);  shift_r[:, 0] = 0
+    
+    eroded = eroded & shift_u & shift_d & shift_l & shift_r
+    return eroded
+
+def numpy_dilate(mask):
+    dilated = mask.copy()
+    
+    shift_u = np.roll(mask, -1, axis=0); shift_u[-1, :] = 0
+    shift_d = np.roll(mask, 1, axis=0);  shift_d[0, :] = 0
+    shift_l = np.roll(mask, -1, axis=1); shift_l[:, -1] = 0
+    shift_r = np.roll(mask, 1, axis=1);  shift_r[:, 0] = 0
+    
+    dilated = dilated | shift_u | shift_d | shift_l | shift_r
+    return dilated
+
 
 def get_hand_state(frame):
     mirrored = frame[:, ::-1].copy()
+
+    gesture = "CLOSED"
 
     scale = HAND_DETECT_SCALE
     small = cv2.resize(mirrored, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR)
     small_mask = skin_mask(small)
 
+    
+    #opening closing
+    mask_eroded = numpy_erode(small_mask)
+    mask_opened = numpy_dilate(mask_eroded)
+
+    mask_dilated = numpy_dilate(mask_opened)
+    small_mask = numpy_erode(mask_dilated)
+
+    # balikin ke 0-255
+    small_mask = (small_mask.astype(np.uint8) * 255)
+
     scaled_min_area = max(50, int(MIN_COMPONENT_AREA * (scale * scale)))
-    hand_box_small = find_largest_component(small_mask, min_area=scaled_min_area)
+    hand_box = find_largest_component(small_mask, min_area=scaled_min_area)
 
     annotated = mirrored.copy()
     hand_center = None
 
-    if hand_box_small is not None:
-        sx, sy, sw, sh, _area = hand_box_small
-        shrink_x = max(1, int(sw * BOX_SHRINK_RATIO))
-        shrink_y = max(1, int(sh * BOX_SHRINK_RATIO))
+    if hand_box is not None:
+        sx, sy, sw, sh, _area = hand_box
 
-        sx = sx + shrink_x
-        sy = sy + shrink_y
-        sw = max(1, sw - (2 * shrink_x))
-        sh = max(1, sh - (2 * shrink_y))
+        # --- [LOGIKA DETEKSI GESTUR BARU] ---
+        # Potong area masker kecil hanya di dalam bounding box tangan
+        hand_roi = small_mask[sy : (sy + sh), sx : (sx + sw)]
+        
+        # Hitung jumlah piksel kulit (bernilai 255) di dalam ROI tersebut
+        skin_pixels = float(np.sum(hand_roi == 255))
+        box_area = float(sw * sh)
+        
+        # Hitung rasio kepadatan (Solidity)
+        density_ratio = skin_pixels / box_area if box_area > 0 else 0.0
+        
+        # Tentukan gestur berdasarkan kepadatan piksel
+        if density_ratio >= GESTURE_THRESHOLD:
+            gesture = "CLOSED"
+        else:
+            gesture = "OPEN"
+        # -------------------------------------
 
         x = int(sx / scale)
         y = int(sy / scale)
         w = int(sw / scale)
         h = int(sh / scale)
 
-        draw_rectangle(annotated, x, y, w, h, color=(0, 255, 0), thickness=3)
+        if gesture == "CLOSED":
+            box_color = (0, 0, 255)  # MERAH jika tangan menutup
+        else:
+            box_color = (0, 255, 0)  # HIJAU jika tangan membuka
+        draw_rectangle(annotated, x, y, w, h, box_color, thickness=3)
 
         center_x = x + w // 2
         center_y = y + h // 2
         hand_center = (center_x, center_y)
         draw_filled_square(annotated, center_x, center_y, HAND_CENTER_SQUARE_SIZE, color=(0, 0, 255))
 
-        highlighted = annotated[y:y + h, x:x + w]
-        if highlighted.size > 0:
-            overlay = highlighted.astype(np.float32)
-            overlay[:, :, 1] = np.clip(overlay[:, :, 1] + HAND_HIGHLIGHT_SATURATION_BOOST, 0, 255)
-            overlay[:, :, 2] = np.clip(overlay[:, :, 2] + HAND_HIGHLIGHT_VALUE_BOOST, 0, 255)
-            annotated[y:y + h, x:x + w] = overlay.astype(np.uint8)
+        cv2.rectangle(annotated, 
+                      (center_x - 12, center_y - 12),
+                      (center_x + 12, center_y + 12), 
+                      (0, 255, 255), -1)
 
-    mask_display = (small_mask.astype(np.uint8) * 255)
-    mask_up = cv2.resize(mask_display, (mirrored.shape[1], mirrored.shape[0]), interpolation=cv2.INTER_NEAREST)
+        # Tampilkan teks status gestur dan angka rasionya untuk memudahkan debug pencahayaan
+        status_text = f"{gesture} ({density_ratio:.2f})"
+        cv2.putText(annotated, status_text, (x, y - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, box_color, 2)
 
-    return annotated, mask_up, hand_center
+    
+    mask_up = cv2.resize(small_mask, (mirrored.shape[1], mirrored.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+    return annotated, mask_up, hand_center, gesture

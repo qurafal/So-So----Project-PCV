@@ -14,7 +14,7 @@ from rhythm_game import RhythmGame
 from stage_loader import load_stage
 
 # ==================================== TESTING = True, Asli = False
-TEST_MOUSE_CONTROL = True
+TEST_MOUSE_CONTROL = False
 # =========================================================
 GAME_PREVIEW_MARGIN_X = 220
 GAME_PREVIEW_MARGIN_Y = 140
@@ -100,7 +100,7 @@ def main():
     last_time = time.perf_counter()
     windows_ready = False
     mouse_position = {"x": None, "y": None, "active": False, "clicked": False}
-    game_started = False
+    last_frame_time = time.time()
 
     def on_mouse(event, x, y, flags, param):
         if event == cv2.EVENT_MOUSEMOVE:
@@ -110,6 +110,9 @@ def main():
         elif event == cv2.EVENT_LBUTTONDOWN:
             mouse_position["clicked"] = True
 
+
+    game_started = False
+    last_gesture_state = "CLOSED" 
 
     while True:
         ret, frame = cam.read()
@@ -153,12 +156,17 @@ def main():
             annotated = frame.copy()
             mask = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             hand_center = None
+            gesture = "CLOSED"
         else:
-            annotated, mask, hand_center = get_hand_state(frame)
+            annotated, mask, hand_center, gesture = get_hand_state(frame)
 
         now = time.perf_counter()
         dt = now - last_time
         last_time = now
+
+        current_time = time.time()
+        frame_delta = current_time - last_frame_time
+        last_frame_time = current_time
 
         target_cursor = None
         instant_cursor = False
@@ -176,8 +184,29 @@ def main():
             target_cursor = game.cursor_from_normalized(normalized_x, normalized_y)
 
         if game_started:
+            if game.skill_cooldown_timer > 0.0:
+                game.skill_cooldown_timer = max(0.0, game.skill_cooldown_timer - frame_delta)
+
+            # 2. Update Durasi Aktif Buff Tameng 150 Derajat (2 detik)
+            if game.is_skill_active:
+                game.skill_duration_timer = max(0.0, game.skill_duration_timer - frame_delta)
+                # Jika waktu 2 detik sudah habis, kembalikan ukuran tameng ke normal
+                if game.skill_duration_timer <= 0.0:
+                    game.is_skill_active = False
+                    game.shield_arc_deg = game.normal_shield_arc
+
+            # ─── DETEKSI TRANSISI GESTUR UNTUK MEMICU SKILL ───
+            # Memicu skill ketika tangan yang tadinya mengepal (CLOSED) tiba- tailoring dibuka (OPEN)
+            if gesture == "OPEN" and last_gesture_state == "CLOSED":
+                game.trigger_shield_skill()
+
+            # Simpan status gestur sekarang untuk perbandingan frame selanjutnya
+            last_gesture_state = gesture
+
+            # Jalankan update game ritme bawaanmu
             game.update(dt, target_cursor, instant_cursor=instant_cursor)
             game_canvas = game.draw()
+            
         else:
             game_canvas = make_start_menu_canvas(game.game_width, game.game_height)
 
