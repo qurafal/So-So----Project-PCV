@@ -1,81 +1,102 @@
 # So So! - Project PCV
 
-Sebuah proyek Rhythm Game berbasis Python yang memanfaatkan teknologi Computer Vision. Game ini mendeteksi posisi tangan pemain menggunakan kamera (webcam) secara real-time untuk mengendalikan tameng (shield) guna menghalau notes yang datang dari 4 sisi (`top`, `bottom`, `left`, `right`).
+Sebuah proyek Rhythm Game interaktif berbasis Python yang memanfaatkan teknologi Computer Vision (Visi Komputer). Game ini mendeteksi posisi tangan pemain menggunakan kamera (webcam) secara real-time untuk mengendalikan kursor tameng (shield) guna menghalau notes yang datang dari 4 arah mata angin (`top`, `bottom`, `left`, `right`).
 
-Proyek ini menggunakan kombinasi OpenCV untuk mengambil citra dan menampilkan window, Numpy untuk pengolahan citra dan deteksi warna kulit, serta Pygame Mixer untuk pemutaran audio.
-
----
-
-## Fitur Utama
-
-- **Deteksi Tangan Real-Time:** Menggunakan segmentasi warna HSV untuk melacak posisi tangan pemain.
-- **Stage Loader:** Membaca bagan lagu (chart) berbasis format JSON secara dinamis, mendeteksi ketukan musik secara presisi berdasarkan detik/waktu (timestamp).
+Proyek ini dikembangkan menggunakan kombinasi OpenCV untuk pengambilan citra dan interface, Pygame Mixer untuk play audio, serta NumPy untuk image processing, alpha blending, dan morfologi.
 
 ---
 
-## Struktur File Proyek
+## 📺 Demonstrasi Proyek & Tangkapan Layar
 
-Proyek ini dibangun secara modular dengan pembagian tugas sebagai berikut:
+### Video Demonstrasi
+[![Video Gameplay CV Rhythm Game](https://img.shields.io/badge/YouTube-Video%20Demonstrasi-red?style=for-the-badge&logo=youtube)](https://youtube.com/watch?v=PLACEHOLDER_VIDEO_LINK)
+*(Klik tombol di atas untuk melihat video demonstrasi teknis dan gameplay proyek)*
 
-1. **`main.py`**
-   *Entry point* utama aplikasi. Berfungsi mengatur *game loop*, inisialisasi kamera, sinkronisasi audio, manajemen menu awal (*Start Menu*), serta menghubungkan modul deteksi tangan dengan logika *rhythm game*.
-2. **`hand_detection.py`**
-   Modul pengolahan citra. Berfungsi mengonversi *frame* video ke color space HSV, melakukan *skin masking* (segmentasi kulit), mencari komponen terbesar, menentukan gestur, dan mengekstrak titik tengah koordinat tangan pemain.
-3. **`rhythm_game.py`**
-   Modul inti logika permainan. Mengatur pergerakan *notes* dari luar ke dalam lingkaran tengah, kalkulasi posisi tameng (*shield*), deteksi tabrakan (*collision detection*), serta penghitungan skor dan kombo.
-4. **`stage_loader.py`**
-   Modul utilitas untuk memuat konfigurasi panggung/level. Membaca metadata lagu dan susunan koordinat *chart* dari file eksternal berbasis `.json`.
-5. **`requirements.txt`**
-   Daftar dependensi pustaka (*libraries*) pihak ketiga yang dibutuhkan untuk menjalankan proyek.
+### Tangkapan Layar Game (Gameplay Screenshots)
+| Antarmuka Menu Utama | Tampilan Skin Mask (NumPy) | Dokumentasi Gameplay |
+| :---: | :---: | :---: |
+| ![Start Menu](https://via.placeholder.com/400x250.png?text=Placeholder:+Tampilan+Menu+Utama) | ![Skin Masking](https://via.placeholder.com/400x250.png?text=Placeholder:+Proses+Masking+Tangan) | ![Gameplay Active](https://via.placeholder.com/400x250.png?text=Placeholder:+Gameplay+Tameng+150+Derajat) |
 
 ---
 
-## Panduan Instalasi & Persiapan
+## 📝 Laporan & Dokumentasi Teknis
 
-### 1. Prasyarat
-Pastikan kamu sudah menginstal **Python 3.10** atau versi yang lebih baru di komputermu.
+### 1. Segmentasi Warna Kulit (Skin Masking) & Morfologi NumPy
+- Citra dari kamera dikonversi ke ruang warna HSV untuk memisahkan nilai intensitas cahaya dengan rona warna kulit secara adaptif.
+- Pembersihan noise bintik putih luar menggunakan operasi Opening, dan penyambungan sela kosong jari menggunakan operasi Closing. Kedua operasi ini diimplementasikan secara manual menggunakan teknik Shift 2D Vektor NumPy (`np.roll` & logika bitwise) untuk mempertahankan performa real-time 60 FPS pada matriks 2D gambar.
 
-### 2. Kloning Proyek & Masuk ke Direktori
-Clone repository ini.
+### 2. Deteksi Gestur Berdasarkan Analisis Geometri Kepadatan (Solidity)
+- Setelah komponen tangan terbesar diisolasi, sistem mengekstrak ROI (Region of Interest) dari bounding box tangan.
+- Nilai rasio kepadatan piksel kulit dikalkulasi secara desimal (density ratio). Jika tangan mengepal rapat (`CLOSED`), rasio piksel akan tinggi karena area kotak terisi penuh. Jika tangan membuka lebar (`OPEN`), rasio akan anjlok akibat adanya celah di sela-sela jari.
 
-### 3. Instalasi Dependensi
-Instal semua pustaka yang diperlukan menggunakan pip:
+### 3. Mekanik Skill Penguat Tameng (Buff Shield 150°)
+- State Normal (`CLOSED`): Pemain mempertahankan kepalan tangan untuk mengendalikan tameng berukuran normal dalam menangkis notes.
+- State Skill (`OPEN`): Ketika pemain membuka telapak tangan, sistem mendeteksi transisi gestur dan memicu skill yang memperluas busur lingkaran tameng secara drastis menjadi 150 derajat selama 2 detik (cooldown 10 detik).
+
+### 4. Rendering Kursor Sprite dengan Alpha Blending Manual
+- Penempelan gambar sprite kursor berformat `.png` transparan (RGBA) diproses menggunakan rumus perpaduan warna manual tingkat piksel NumPy:  
+  $$\text{Output} = (\text{Sprite Color} \times \text{Alpha}) + (\text{Background Color} \times (1 - \text{Alpha}))$$
+
+---
+
+##  Struktur Direktori Kode Sumber Utama
+
+```text
+├── assets/
+│   ├── songs/
+│   │   └── Hatsukoi 1_1 BGM - Light Staff - Rend...   # File audio musik latar permainan
+│   ├── stages/
+│   │   └── stage_01/
+│   │       ├── chart.json          # File data biner koordinat chart lagu
+│   │       └── stage.json          # Konfigurasi panggung/level permainan
+│   └── kursor.png                  # File sprite kursor transparan (RGBA)
+├── .gitignore                      # File pengecualian pelacakan Git
+├── hand_detection.py               # Modul masking HSV, Morfologi, & Deteksi Gestur
+├── main.py                         # Entry point utama aplikasi & pengatur loop
+├── requirements.txt                # Daftar dependensi modul pihak ketiga
+├── rhythm_game.py                  # Modul logika game, collision notes, & Alpha Blending
+└── stage_loader.py                 # Modul utility pemuat konfigurasi file JSON 
+```
+
+## Panduan Instalasi & Persiapan Teknis
+### 1. Prasyarat Sistem
+Pastikan komputer Anda sudah terpasang Python 3.10 atau versi yang lebih baru 
+
+### 2. Kloning Repositori & Navigasi Folder
+Clone repository ini dan masuk ke folder
+### 3. Instalasi Dependensi Pustaka
+Instal seluruh libraries yang diperlukan melalui pip:
 
 ```Bash
 pip install -r requirements.txt
 ```
-### 4. Struktur Folder Aset Musik/Chart (Rekomendasi)
-Pastikan file .json panggung/chart dan file audio musik (.mp3 / .wav) diletakkan pada folder yang sesuai dengan path yang dibaca oleh stage_loader.py.
-
-## Cara Bermain
-Jalankan skrip utama:
+### Panduan Kontrol Permainan
+Jalankan aplikasi melalui terminal komputer Anda:
 
 ```Bash
 python main.py
 ```
-Menu Utama: Tekan tombol SPASI (Spacebar), tombol S, atau Klik Mouse pada layar untuk memulai permainan dan memutar musik.
+- Memulai Game: Pada menu awal bertuliskan "so so!", tekan tombol SPASI (Spacebar), tombol S, atau Klik Kiri Mouse pada jendela permainan untuk memutar musik latar.
 
-Mekanik Game: 
+- Mekanik Bertahan: Kepalkan tangan Anda (CLOSED) di depan kamera untuk mengarahkan tameng melingkar berukuran normal demi menghalau balok notes yang meluncur dari luar.
 
-Gerakkan tanganmu di depan webcam (atau gerakkan mouse jika mode testing aktif) untuk mengarahkan tameng melingkar di tengah layar.
+- Memicu Skill: Buka telapak tangan Anda lebar-lebar (OPEN) untuk melebarkan busur tameng menjadi 150 derajat selama 2 detik ketika diserang gerombolan ketukan padat.
 
-Mekanik Gerakan:
+### Navigasi Sistem:
 
-Jaga tangan tetap mengepal rapat (CLOSED) di depan webcam untuk mengarahkan posisi tameng normal dalam menghadang notes.
+- Tekan tombol R untuk mereset bagan lagu dan mengulang dari awal (Restart).
 
-Buka telapak tangan lebar-lebar (OPEN) untuk memicu skill tameng raksasa 150 derajat selama 2 detik saat kewalahan menghadapi gerombolan notes.
+- Tekan tombol Q untuk menutup paksa kamera dan keluar dari game (Quit).
 
-Hadang setiap balok note yang meluncur dari arah luar sesuai irama lagu.
+## Tuning Parameter
+Parameter toleransi sensitivitas dapat dikonfigurasi langsung pada file:
 
-Kontrol Tambahan:
+- hand_detection.py: Sesuaikan nilai desimal GESTURE_THRESHOLD = 0.55 untuk menaikkan/menurunkan sensitivitas pembacaan kepalan tangan berdasarkan kondisi pencahayaan ruangan Anda. 
+Sesuaikan juga :
+    - SKIN_H_MIN,
+    - SKIN_H_MAX,
+    - SKIN_S_MIN,
+    - SKIN_S_MAX,
+    - SKIN_V_MIN.
 
-Tekan tombol R untuk mengulang permainan dari awal (Restart).
-
-Tekan tombol Q untuk keluar dari permainan (Quit).
-
-## Konfigurasi & Tuning Pengembang
-Kamu dapat menyesuaikan sensitivitas permainan secara langsung di dalam kode:
-
-hand_detection.py: Sesuaikan nilai batas HSV (SKIN_H_MIN, SKIN_S_MIN, dll) jika deteksi kulit kurang optimal karena faktor pencahayaan ruanganmu.
-
-main.py: Ubah variabel TEST_MOUSE_CONTROL = False jika kamu ingin murni bermain menggunakan deteksi kamera tangan tanpa bantuan mouse.
+- main.py: Ubah konstanta bolean TEST_MOUSE_CONTROL = True jika Anda ingin menguji mekanik permainan menggunakan gerakan kursor mouse tanpa menyalakan webcam.
