@@ -8,7 +8,7 @@ Proyek ini dikembangkan menggunakan kombinasi OpenCV untuk pengambilan citra dan
 
 ---
 
-## 📺 Demonstrasi Proyek & Tangkapan Layar
+## Demonstrasi Proyek & Tangkapan Layar
 
 ### Video Demonstrasi
 [Video Gameplay CV Rhythm Game](https://youtu.be/hVtM1REGCdU)
@@ -25,7 +25,7 @@ Proyek ini dikembangkan menggunakan kombinasi OpenCV untuk pengambilan citra dan
 
 ---
 
-## 📝 Laporan & Dokumentasi Teknis
+## Laporan & Dokumentasi Teknis
 
 ### 1. Segmentasi Warna Kulit (Skin Masking) & Morfologi NumPy
 - Citra dari kamera dikonversi ke ruang warna HSV untuk memisahkan nilai intensitas cahaya dengan rona warna kulit secara adaptif.

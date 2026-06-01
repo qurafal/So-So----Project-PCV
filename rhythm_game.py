@@ -357,7 +357,7 @@ class RhythmGame:
 
         cv2.line(canvas, (center_x, 0), (center_x, self.game_height), (40, 40, 40), 1)
         cv2.line(canvas, (0, center_y), (self.game_width, center_y), (40, 40, 40), 1)
-        # Draw shield arc facing the cursor
+
 
         dx_c = int(self.cursor_x - center_x)
         dy_c = int(self.cursor_y - center_y)

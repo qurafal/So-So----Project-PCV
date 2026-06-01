@@ -213,12 +213,12 @@ def main():
         if key == ord("q"):
             break
 
-        # Start on spacebar or mouse click
+
         if not game_started and (key == ord(" ") or key == ord("s") or mouse_position.get("clicked")):
             game_started = True
             mouse_position["clicked"] = False
 
-        # Restart on 'r' key
+  
         if key == ord("r"):
             if pygame is not None and pygame.mixer.get_init():
                 try:

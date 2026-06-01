@@ -200,23 +200,18 @@ def get_hand_state(frame):
     if hand_box is not None:
         sx, sy, sw, sh, _area = hand_box
 
-        # --- [LOGIKA DETEKSI GESTUR BARU] ---
-        # Potong area masker kecil hanya di dalam bounding box tangan
         hand_roi = small_mask[sy : (sy + sh), sx : (sx + sw)]
-        
-        # Hitung jumlah piksel kulit (bernilai 255) di dalam ROI tersebut
+
         skin_pixels = float(np.sum(hand_roi == 255))
         box_area = float(sw * sh)
-        
-        # Hitung rasio kepadatan (Solidity)
+
         density_ratio = skin_pixels / box_area if box_area > 0 else 0.0
-        
-        # Tentukan gestur berdasarkan kepadatan piksel
+
         if density_ratio >= GESTURE_THRESHOLD:
             gesture = "CLOSED"
         else:
             gesture = "OPEN"
-        # -------------------------------------
+
 
         x = int(sx / scale)
         y = int(sy / scale)
@@ -224,9 +219,9 @@ def get_hand_state(frame):
         h = int(sh / scale)
 
         if gesture == "CLOSED":
-            box_color = (0, 0, 255)  # MERAH jika tangan menutup
+            box_color = (0, 0, 255)  
         else:
-            box_color = (0, 255, 0)  # HIJAU jika tangan membuka
+            box_color = (0, 255, 0)
         draw_rectangle(annotated, x, y, w, h, box_color, thickness=3)
 
         center_x = x + w // 2
@@ -239,7 +234,6 @@ def get_hand_state(frame):
                       (center_x + 12, center_y + 12), 
                       (0, 255, 255), -1)
 
-        # Tampilkan teks status gestur dan angka rasionya untuk memudahkan debug pencahayaan
         status_text = f"{gesture} ({density_ratio:.2f})"
         cv2.putText(annotated, status_text, (x, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, box_color, 2)
