@@ -14,7 +14,7 @@ from rhythm_game import RhythmGame
 from stage_loader import load_stage
 
 # ==================================== TESTING = True, Asli = False
-TEST_MOUSE_CONTROL = False
+TEST_MOUSE_CONTROL = True
 # =========================================================
 GAME_PREVIEW_MARGIN_X = 220
 GAME_PREVIEW_MARGIN_Y = 140
@@ -132,7 +132,7 @@ def main():
                 preview_margin_y=GAME_PREVIEW_MARGIN_Y,
             )
 
-        # Start audio only after the player taps to start
+
         if audio_started is None and game_started:
             # small delay to allow UI/audio initialization
             # time.sleep(1.0)
@@ -187,23 +187,18 @@ def main():
             if game.skill_cooldown_timer > 0.0:
                 game.skill_cooldown_timer = max(0.0, game.skill_cooldown_timer - frame_delta)
 
-            # 2. Update Durasi Aktif Buff Tameng 150 Derajat (2 detik)
             if game.is_skill_active:
                 game.skill_duration_timer = max(0.0, game.skill_duration_timer - frame_delta)
-                # Jika waktu 2 detik sudah habis, kembalikan ukuran tameng ke normal
                 if game.skill_duration_timer <= 0.0:
                     game.is_skill_active = False
                     game.shield_arc_deg = game.normal_shield_arc
 
-            # ─── DETEKSI TRANSISI GESTUR UNTUK MEMICU SKILL ───
-            # Memicu skill ketika tangan yang tadinya mengepal (CLOSED) tiba- tailoring dibuka (OPEN)
+           
             if gesture == "OPEN" and last_gesture_state == "CLOSED":
                 game.trigger_shield_skill()
 
-            # Simpan status gestur sekarang untuk perbandingan frame selanjutnya
             last_gesture_state = gesture
 
-            # Jalankan update game ritme bawaanmu
             game.update(dt, target_cursor, instant_cursor=instant_cursor)
             game_canvas = game.draw()
             

@@ -2,6 +2,7 @@ import time
 import math
 import numpy as np
 import cv2
+from pathlib import Path
 
 
 def clamp(value, low, high):
@@ -63,6 +64,40 @@ def rect_intersects_annulus_sector(rect_x, rect_y, rect_w, rect_h, center_x, cen
             return True
 
     return False
+
+def draw_sprite_alpha_manual(background, sprite_rgba, center_x, center_y):
+
+    bg_h, bg_w = background.shape[:2]
+    sp_h, sp_w = sprite_rgba.shape[:2]
+
+    x_min = int(center_x - sp_w // 2)
+    y_min = int(center_y - sp_h // 2)
+    x_max = x_min + sp_w
+    y_max = y_min + sp_h
+
+    bg_x_min = max(0, x_min)
+    bg_y_min = max(0, y_min)
+    bg_x_max = min(bg_w, x_max)
+    bg_y_max = min(bg_h, y_max)
+
+    sp_x_min = bg_x_min - x_min
+    sp_y_min = bg_y_min - y_min
+    sp_x_max = sp_x_min + (bg_x_max - bg_x_min)
+    sp_y_max = sp_y_min + (bg_y_max - bg_y_min)
+
+    if (bg_x_max <= bg_x_min) or (bg_y_max <= bg_y_min):
+        return
+
+    bg_roi = background[bg_y_min:bg_y_max, bg_x_min:bg_x_max]
+    sp_roi = sprite_rgba[sp_y_min:sp_y_max, sp_x_min:sp_x_max]
+
+    sprite_bgr = sp_roi[:, :, :3].astype(np.float32)
+    alpha = (sp_roi[:, :, 3].astype(np.float32) / 255.0)[:, :, np.newaxis]
+    bg_float = bg_roi.astype(np.float32)
+
+    blended = (sprite_bgr * alpha) + (bg_float * (1.0 - alpha))
+
+    background[bg_y_min:bg_y_max, bg_x_min:bg_x_max] = blended.astype(np.uint8)
 
 
 class Note:
@@ -184,6 +219,15 @@ class RhythmGame:
         self.chart_offset_seconds = float(chart_offset_seconds)
         self.start_time = time.perf_counter()
 
+        sprite_path = Path(__file__).resolve().parent / "assets" / "kursor.png"
+        
+        if sprite_path.exists():
+            self.cursor_sprite = cv2.imread(str(sprite_path), cv2.IMREAD_UNCHANGED)
+            # self.cursor_sprite = cv2.resize(self.cursor_sprite, (48, 48), interpolation=cv2.INTER_AREA)
+        else:
+            print(f"⚠️ Peringatan: File sprite tidak ditemukan di {sprite_path}. Menggunakan kursor kotak bawaan.")
+            self.cursor_sprite = None
+
     def reset_chart(self, chart_notes=None, chart_offset_seconds=None):
         if chart_notes is not None:
             self.chart_notes = list(chart_notes)
@@ -199,15 +243,13 @@ class RhythmGame:
         self.start_time = time.perf_counter()
 
     def trigger_shield_skill(self):
-        """Memicu skill melebarkan tameng menjadi 150 derajat jika tidak sedang cooldown"""
         if self.skill_cooldown_timer > 0.0 or self.is_skill_active:
-            return False  # Gagal karena masih cooldown atau sedang aktif
+            return False 
             
-        # Aktifkan skill
         self.is_skill_active = True
-        self.shield_arc_deg = 150.0          # Ubah busur tameng jadi 150 derajat
-        self.skill_duration_timer = 2.0      # Atur durasi aktif selama 2 detik
-        self.skill_cooldown_timer = 10.0     # Atur cooldown selama 10 detik (berjalan paralel)
+        self.shield_arc_deg = 150.0          
+        self.skill_duration_timer = 2.0      
+        self.skill_cooldown_timer = 10.0     
         return True
 
     def song_time(self):
@@ -340,15 +382,13 @@ class RhythmGame:
 
         cursor_x = int(self.cursor_x)
         cursor_y = int(self.cursor_y)
-        cursor_size = self.cursor_size
-        cv2.rectangle(
-            canvas,
-            (cursor_x - cursor_size, cursor_y - cursor_size),
-            (cursor_x + cursor_size, cursor_y + cursor_size),
-            (0, 0, 255),
-            2,
-        )
-        cv2.circle(canvas, (cursor_x, cursor_y), 4, (0, 0, 255), -1)
+        if self.cursor_sprite is not None:
+                        draw_sprite_alpha_manual(canvas, self.cursor_sprite, cursor_x, cursor_y)
+        else:
+            cursor_size = 8
+            cv2.rectangle(canvas, (cursor_x - cursor_size, cursor_y - cursor_size),
+                          (cursor_x + cursor_size, cursor_y + cursor_size), (0, 0, 255), 2)
+            cv2.circle(canvas, (cursor_x, cursor_y), 4, (0, 0, 255), -1)
 
         cv2.putText(canvas, f"Score: {self.score}", (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
         cv2.putText(canvas, f"Miss: {self.misses}", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 180, 180), 2)
@@ -357,15 +397,17 @@ class RhythmGame:
 
         if self.is_skill_active:
             skill_text = f"BUFF ACTIVE! ({self.skill_duration_timer:.1f}s)"
-            text_color = (0, 255, 255) # Cyan saat tameng raksasa aktif
+            text_color = (0, 255, 255) 
         elif self.skill_cooldown_timer > 0.0:
             skill_text = f"Skill CD: {self.skill_cooldown_timer:.1f}s"
-            text_color = (0, 165, 255) # Oranye saat cooldown
+            text_color = (0, 165, 255) 
         else:
             skill_text = "SKILL READY! (Open Hand)"
-            text_color = (0, 255, 0) # Hijau saat siap digunakan
+            text_color = (0, 255, 0) 
 
         cv2.putText(canvas, skill_text, (self.game_width - 320, 40), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, text_color, 2)
 
         return canvas
+    
+
