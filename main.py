@@ -1,147 +1,219 @@
+import time
+from pathlib import Path
+
 import cv2
 import numpy as np
 
+try:
+    import pygame
+except ImportError:
+    pygame = None
 
-def bgr_to_ycrcb(frame):
-    frame = frame.astype(np.float32)
-    b = frame[:, :, 0]
-    g = frame[:, :, 1]
-    r = frame[:, :, 2]
-
-    y = 0.114 * b + 0.587 * g + 0.299 * r
-    cr = (r - y) * 0.713 + 128.0
-    cb = (b - y) * 0.564 + 128.0
-
-    return y, cr, cb
+from hand_detection import get_hand_state
+from rhythm_game import RhythmGame
+from stage_loader import load_stage
 
 
-def skin_mask(frame):
-    y, cr, cb = bgr_to_ycrcb(frame)
+TEST_MOUSE_CONTROL = False
+GAME_PREVIEW_MARGIN_X = 220
+GAME_PREVIEW_MARGIN_Y = 140
+CAMERA_TARGET_FPS = 60
 
-    mask = (
-        (y > 70.0)
-        & (cr >= 133.0)
-        & (cr <= 173.0)
-        & (cb >= 77.0)
-        & (cb <= 127.0)
+
+def clamp(value, low, high):
+    return max(low, min(high, value))
+
+
+def start_song(song_path):
+    if pygame is None:
+        print("Audio tidak bisa diputar: pygame belum terpasang")
+        return False
+
+    try:
+        if not pygame.mixer.get_init():
+            pygame.mixer.init()
+        pygame.mixer.music.load(str(song_path))
+        pygame.mixer.music.set_volume(0.8)
+        pygame.mixer.music.play()
+        return True
+    except pygame.error as error:
+        print(f"Audio tidak bisa diputar: {error}")
+        return False
+
+
+
+def make_start_menu_canvas(width, height):
+    canvas = np.zeros((height, width, 3), dtype=np.uint8)
+
+    title = "so so!"
+    subtitle = "Press SPACE or click to start"
+
+    title_scale = 2.4
+    title_thickness = 5
+    subtitle_scale = 0.9
+    subtitle_thickness = 2
+
+    title_size, title_baseline = cv2.getTextSize(title, cv2.FONT_HERSHEY_SIMPLEX, title_scale, title_thickness)
+    subtitle_size, subtitle_baseline = cv2.getTextSize(subtitle, cv2.FONT_HERSHEY_SIMPLEX, subtitle_scale, subtitle_thickness)
+
+    title_x = max(0, (width - title_size[0]) // 2)
+    title_y = max(title_size[1] + 40, height // 2 - 30)
+    subtitle_x = max(0, (width - subtitle_size[0]) // 2)
+    subtitle_y = min(height - 40, title_y + 55)
+
+    cv2.putText(
+        canvas,
+        title,
+        (title_x, title_y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        title_scale,
+        (255, 255, 255),
+        title_thickness,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        canvas,
+        subtitle,
+        (subtitle_x, subtitle_y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        subtitle_scale,
+        (180, 180, 180),
+        subtitle_thickness,
+        cv2.LINE_AA,
     )
 
-    return mask
-
-
-def find_largest_component(mask, min_area=3000):
-    height, width = mask.shape
-    visited = np.zeros_like(mask, dtype=bool)
-    best_component = None
-    best_area = 0
-
-    candidate_y, candidate_x = np.where(mask)
-
-    for start_y, start_x in zip(candidate_y, candidate_x):
-        if visited[start_y, start_x]:
-            continue
-
-        stack = [(start_y, start_x)]
-        visited[start_y, start_x] = True
-        area = 0
-        min_x = max_x = start_x
-        min_y = max_y = start_y
-
-        while stack:
-            current_y, current_x = stack.pop()
-            area += 1
-
-            if current_x < min_x:
-                min_x = current_x
-            if current_x > max_x:
-                max_x = current_x
-            if current_y < min_y:
-                min_y = current_y
-            if current_y > max_y:
-                max_y = current_y
-
-            y0 = max(0, current_y - 1)
-            y1 = min(height, current_y + 2)
-            x0 = max(0, current_x - 1)
-            x1 = min(width, current_x + 2)
-
-            for neighbor_y in range(y0, y1):
-                for neighbor_x in range(x0, x1):
-                    if not visited[neighbor_y, neighbor_x] and mask[neighbor_y, neighbor_x]:
-                        visited[neighbor_y, neighbor_x] = True
-                        stack.append((neighbor_y, neighbor_x))
-
-        if area > best_area:
-            best_area = area
-            best_component = (min_x, min_y, max_x - min_x + 1, max_y - min_y + 1, area)
-
-    if best_component is None or best_area < min_area:
-        return None
-
-    return best_component
-
-
-def draw_rectangle(frame, x, y, w, h, color=(0, 255, 0), thickness=2):
-    height, width = frame.shape[:2]
-
-    x1 = max(0, x)
-    y1 = max(0, y)
-    x2 = min(width, x + w)
-    y2 = min(height, y + h)
-
-    for offset in range(thickness):
-        top = y1 + offset
-        bottom = y2 - 1 - offset
-        left = x1 + offset
-        right = x2 - 1 - offset
-
-        if top < y2:
-            frame[top, x1:x2] = color
-        if bottom >= y1:
-            frame[bottom, x1:x2] = color
-        if left < x2:
-            frame[y1:y2, left] = color
-        if right >= x1:
-            frame[y1:y2, right] = color
-
-
-def detect_hand(frame):
-    mirrored = frame[:, ::-1].copy()
-    mask = skin_mask(mirrored)
-
-    hand_box = find_largest_component(mask)
-    annotated = mirrored.copy()
-
-    if hand_box is not None:
-        x, y, w, h, area = hand_box
-        draw_rectangle(annotated, x, y, w, h, color=(0, 255, 0), thickness=3)
-
-        highlighted = annotated[y:y + h, x:x + w]
-        if highlighted.size > 0:
-            overlay = highlighted.astype(np.float32)
-            overlay[:, :, 1] = np.clip(overlay[:, :, 1] + 35.0, 0, 255)
-            overlay[:, :, 2] = np.clip(overlay[:, :, 2] + 20.0, 0, 255)
-            annotated[y:y + h, x:x + w] = overlay.astype(np.uint8)
-
-    return mirrored, annotated, mask.astype(np.uint8) * 255
+    return canvas
 
 
 def main():
     cam = cv2.VideoCapture(0)
+    cam.set(cv2.CAP_PROP_FPS, CAMERA_TARGET_FPS)
+    cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    game = None
+    stage = load_stage(Path(__file__).resolve().parent / "assets" / "stages" / "stage_01" / "stage.json")
+    audio_started = None
+
+    camera_width = None
+    camera_height = None
+    last_time = time.perf_counter()
+    windows_ready = False
+    mouse_position = {"x": None, "y": None, "active": False, "clicked": False}
+    game_started = False
+
+    def on_mouse(event, x, y, flags, param):
+        if event == cv2.EVENT_MOUSEMOVE:
+            mouse_position["x"] = x
+            mouse_position["y"] = y
+            mouse_position["active"] = True
+        elif event == cv2.EVENT_LBUTTONDOWN:
+            mouse_position["clicked"] = True
+
+    # cv2.namedWindow("Camera")
+    # cv2.namedWindow("Rhythm Game")
+    # cv2.namedWindow("Skin Mask")
 
     while True:
         ret, frame = cam.read()
         if not ret:
             break
 
-        original, annotated, mask = detect_hand(frame)
+        if camera_width is None or camera_height is None:
+            camera_height, camera_width = frame.shape[:2]
 
-        cv2.imshow("Camera", original)
-        cv2.imshow("Hand Detection", annotated)
+        if game is None:
+            game = RhythmGame(
+                camera_width,
+                camera_height,
+                chart_notes=stage.chart_notes,
+                note_speed=200.0,
+                chart_offset_seconds=stage.chart_offset_seconds,
+                preview_margin_x=GAME_PREVIEW_MARGIN_X,
+                preview_margin_y=GAME_PREVIEW_MARGIN_Y,
+            )
+
+            # Use the base offset from the stage file; removed automatic fall-offset calculation
+
+        # Start audio only after the player taps to start
+        if audio_started is None and game_started:
+            # small delay to allow UI/audio initialization
+            time.sleep(1.0)
+            audio_started = start_song(stage.song_path)
+            game.reset_chart(
+                chart_notes=stage.chart_notes,
+                note_speed=game.note_speed,
+                chart_offset_seconds=game.chart_offset_seconds,
+            )
+
+        if not windows_ready:
+            cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
+            cv2.namedWindow(stage.window_title, cv2.WINDOW_NORMAL)
+            cv2.namedWindow("Skin Mask", cv2.WINDOW_NORMAL)
+            cv2.resizeWindow("Camera", camera_width, camera_height)
+            cv2.resizeWindow(stage.window_title, game.game_width, game.game_height)
+            cv2.resizeWindow("Skin Mask", camera_width, camera_height)
+            cv2.setMouseCallback(stage.window_title, on_mouse)
+            windows_ready = True
+
+        if TEST_MOUSE_CONTROL:
+            annotated = frame.copy()
+            mask = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            hand_center = None
+        else:
+            annotated, mask, hand_center = get_hand_state(frame)
+
+        now = time.perf_counter()
+        dt = now - last_time
+        last_time = now
+
+        target_cursor = None
+        instant_cursor = False
+        if TEST_MOUSE_CONTROL:
+            if mouse_position["active"]:
+                target_cursor = game.cursor_from_window_position(
+                    mouse_position["x"],
+                    mouse_position["y"],
+                )
+                instant_cursor = True
+        elif hand_center is not None and camera_width is not None and camera_height is not None:
+            hand_x, hand_y = hand_center
+            normalized_x = clamp(hand_x / max(1, camera_width), 0.0, 1.0)
+            normalized_y = clamp(hand_y / max(1, camera_height), 0.0, 1.0)
+            target_cursor = game.cursor_from_normalized(normalized_x, normalized_y)
+
+        if game_started:
+            game.update(dt, target_cursor, instant_cursor=instant_cursor)
+            game_canvas = game.draw()
+        else:
+            game_canvas = make_start_menu_canvas(game.game_width, game.game_height)
+
+        cv2.imshow("Camera", annotated)
+        cv2.imshow(stage.window_title, game_canvas)
         cv2.imshow("Skin Mask", mask)
 
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord("q"):
             break
+
+        # Start on spacebar or mouse click
+        if not game_started and (key == ord(" ") or key == ord("s") or mouse_position.get("clicked")):
+            game_started = True
+            mouse_position["clicked"] = False
+
+        # Restart on 'r' key
+        if key == ord("r"):
+            if pygame is not None and pygame.mixer.get_init():
+                try:
+                    pygame.mixer.music.stop()
+                except Exception:
+                    pass
+            audio_started = None
+            game.reset_chart(
+                chart_notes=stage.chart_notes,
+                note_speed=game.note_speed,
+                chart_offset_seconds=game.chart_offset_seconds,
+            )
+            game_started = True
 
     cam.release()
     cv2.destroyAllWindows()
