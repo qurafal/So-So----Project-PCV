@@ -66,7 +66,7 @@ def rect_intersects_annulus_sector(rect_x, rect_y, rect_w, rect_h, center_x, cen
 
 
 class Note:
-    def __init__(self, side, game_width, game_height, speed=None):
+    def __init__(self, side, game_width, game_height):
         self.side = side
         self.game_width = game_width
         self.game_height = game_height
@@ -82,8 +82,7 @@ class Note:
         self.center_y = game_height // 2
         self.hit = False
 
-        if speed is None:
-            speed = 300.0
+        speed = 200.0
 
         self.speed = speed
         self.spawn()
@@ -113,14 +112,6 @@ class Note:
     def update(self, dt):
         self.x += self.vx * dt
         self.y += self.vy * dt
-
-    def is_out(self):
-        return (
-            self.x < -self.size * 2
-            or self.x > self.game_width + self.size * 2
-            or self.y < -self.size * 2
-            or self.y > self.game_height + self.size * 2
-        )
 
     def has_reached_center(self, center_x, center_y, center_radius):
         return rect_circle_collision(
@@ -152,9 +143,7 @@ class RhythmGame:
         game_width=960,
         game_height=720,
         chart_notes=None,
-        note_speed=300.0,
         chart_offset_seconds=0.0,
-        song_time_provider=None,
         preview_margin_x=180,
         preview_margin_y=120,
     ):
@@ -176,7 +165,6 @@ class RhythmGame:
         self.cursor_size = 12
         self.center_radius = 36
         # Shield settings: arc radius (from center), thickness, and angle width in degrees
-        self.shield_enabled = True
         self.shield_radius = self.center_radius + 72
         self.shield_thickness = 20
         self.shield_arc_deg = 70
@@ -186,35 +174,29 @@ class RhythmGame:
         self.combo = 0
         self.chart_notes = list(chart_notes or [])
         self.chart_index = 0
-        self.note_speed = float(note_speed)
+        self.note_speed = 200
         self.chart_offset_seconds = float(chart_offset_seconds)
-        self.song_time_provider = song_time_provider
         self.start_time = time.perf_counter()
 
-    def reset_chart(self, chart_notes=None, note_speed=None, chart_offset_seconds=None, song_time_provider=None):
+    def reset_chart(self, chart_notes=None, chart_offset_seconds=None):
         if chart_notes is not None:
             self.chart_notes = list(chart_notes)
         self.chart_index = 0
 
-        if note_speed is not None:
-            self.note_speed = float(note_speed)
+        self.score = 0
+        self.misses = 0
+        self.combo = 0
 
         if chart_offset_seconds is not None:
             self.chart_offset_seconds = float(chart_offset_seconds)
 
-        if song_time_provider is not None:
-            self.song_time_provider = song_time_provider
-
         self.start_time = time.perf_counter()
 
     def song_time(self):
-        if callable(self.song_time_provider):
-            return max(0.0, float(self.song_time_provider()) - self.chart_offset_seconds)
-
         return time.perf_counter() - self.start_time - self.chart_offset_seconds
 
-    def spawn_note(self, side, speed=None):
-        self.notes.append(Note(side, self.game_width, self.game_height, speed=speed or self.note_speed))
+    def spawn_note(self, side):
+        self.notes.append(Note(side, self.game_width, self.game_height))
 
     def clamp_cursor_to_control(self, cursor_x, cursor_y):
         min_x = self.cursor_size
@@ -250,7 +232,7 @@ class RhythmGame:
             if current_song_time < spawn_time:
                 break
 
-            self.spawn_note(chart_note.side, self.note_speed)
+            self.spawn_note(chart_note.side)
             self.chart_index += 1
 
     def update(self, dt, target_cursor=None, instant_cursor=False):
@@ -274,7 +256,7 @@ class RhythmGame:
             inner_radius = max(0.0, self.shield_radius - self.shield_thickness * 0.5)
             outer_radius = self.shield_radius + self.shield_thickness * 0.5
 
-            if self.shield_enabled and rect_intersects_annulus_sector(
+            if rect_intersects_annulus_sector(
                 note.x,
                 note.y,
                 note.size,
@@ -293,9 +275,6 @@ class RhythmGame:
             if note.has_reached_center(self.center_x, self.center_y, self.center_radius):
                 self.misses += 1
                 self.combo = 0
-                continue
-
-            if note.is_out():
                 continue
 
             remaining_notes.append(note)
@@ -319,22 +298,22 @@ class RhythmGame:
         cv2.line(canvas, (center_x, 0), (center_x, self.game_height), (40, 40, 40), 1)
         cv2.line(canvas, (0, center_y), (self.game_width, center_y), (40, 40, 40), 1)
         # Draw shield arc facing the cursor
-        if self.shield_enabled:
-            dx_c = int(self.cursor_x - center_x)
-            dy_c = int(self.cursor_y - center_y)
-            ang = math.degrees(math.atan2(dy_c, dx_c))
-            start_ang = ang - (self.shield_arc_deg / 2.0)
-            end_ang = ang + (self.shield_arc_deg / 2.0)
-            cv2.ellipse(
-                canvas,
-                (center_x, center_y),
-                (int(self.shield_radius), int(self.shield_radius)),
-                0,
-                float(start_ang),
-                float(end_ang),
-                (160, 200, 255),
-                int(self.shield_thickness),
-            )
+
+        dx_c = int(self.cursor_x - center_x)
+        dy_c = int(self.cursor_y - center_y)
+        ang = math.degrees(math.atan2(dy_c, dx_c))
+        start_ang = ang - (self.shield_arc_deg / 2.0)
+        end_ang = ang + (self.shield_arc_deg / 2.0)
+        cv2.ellipse(
+            canvas,
+            (center_x, center_y),
+            (int(self.shield_radius), int(self.shield_radius)),
+            0,
+            float(start_ang),
+            float(end_ang),
+            (160, 200, 255),
+            int(self.shield_thickness),
+        )
 
         cv2.circle(canvas, (center_x, center_y), self.center_radius, (220, 220, 220), 2)
 

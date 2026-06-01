@@ -1,10 +1,10 @@
 {
   "camera": {
-    "window_title": "Rhythm Game"
+    "window_title": "So so!"
   },
   "song": {
     "file": "../../songs/Hatsukoi 1_1 BGM - Light Staff - Rendaus.mp3",
     "chart_file": "chart.json",
-    "offset_seconds": 0.8
+    "offset_seconds": 0.6
   }
 }

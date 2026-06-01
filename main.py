@@ -13,8 +13,9 @@ from hand_detection import get_hand_state
 from rhythm_game import RhythmGame
 from stage_loader import load_stage
 
-
-TEST_MOUSE_CONTROL = False
+# ==================================== TESTING = True, Asli = False
+TEST_MOUSE_CONTROL = True
+# =========================================================
 GAME_PREVIEW_MARGIN_X = 220
 GAME_PREVIEW_MARGIN_Y = 140
 CAMERA_TARGET_FPS = 60
@@ -109,9 +110,6 @@ def main():
         elif event == cv2.EVENT_LBUTTONDOWN:
             mouse_position["clicked"] = True
 
-    # cv2.namedWindow("Camera")
-    # cv2.namedWindow("Rhythm Game")
-    # cv2.namedWindow("Skin Mask")
 
     while True:
         ret, frame = cam.read()
@@ -126,22 +124,18 @@ def main():
                 camera_width,
                 camera_height,
                 chart_notes=stage.chart_notes,
-                note_speed=200.0,
                 chart_offset_seconds=stage.chart_offset_seconds,
                 preview_margin_x=GAME_PREVIEW_MARGIN_X,
                 preview_margin_y=GAME_PREVIEW_MARGIN_Y,
             )
 
-            # Use the base offset from the stage file; removed automatic fall-offset calculation
-
         # Start audio only after the player taps to start
         if audio_started is None and game_started:
             # small delay to allow UI/audio initialization
-            time.sleep(1.0)
+            # time.sleep(1.0)
             audio_started = start_song(stage.song_path)
             game.reset_chart(
                 chart_notes=stage.chart_notes,
-                note_speed=game.note_speed,
                 chart_offset_seconds=game.chart_offset_seconds,
             )
 
@@ -210,7 +204,6 @@ def main():
             audio_started = None
             game.reset_chart(
                 chart_notes=stage.chart_notes,
-                note_speed=game.note_speed,
                 chart_offset_seconds=game.chart_offset_seconds,
             )
             game_started = True
